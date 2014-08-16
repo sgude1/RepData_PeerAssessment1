@@ -1,20 +1,185 @@
-# Reproducible Research: Peer Assessment 1
-
-
+Reproducible Data Assignment 1 
+========================================================
 ## Loading and preprocessing the data
 
+- Load the Data
 
+```{r, 1 Load_the_data, echo=TRUE}
+#Obtain the data
+fileURL<-"http://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip"
+download.file(fileURL, destfile = "activity.zip")
+unlink(fileURL)
+unzip("activity.zip")
+activity <- read.csv("activity.csv")
+```
+
+- Process/transform the data
+
+```{r, 2 Process_the_data, echo=TRUE}
+#Transform the data.  Take this question to mean a histogram of steps/day and the count of that data as opposed to providing the 
+#number of steps taken on the y axis and date on the x axis
+
+a_sum<-aggregate(steps~date, data=activity, FUN=sum, na.rm=TRUE)
+
+
+```
 
 ## What is mean total number of steps taken per day?
 
+- Make a histogram of the total number of steps taken each day
 
+```{r, 1 Histogram, echo=TRUE}
+#Make a histogram
+library(ggplot2)
+#Binwdith calculation
+bw<-max(a_sum$steps)
+
+ggplot(a_sum, aes(x=steps)) + geom_histogram(binwidth=bw/30) +xlab("Total Steps per Day") +ylab("Frequency")
+```
+
+- Calculate and report the mean and median total number of steps taken per day
+
+```{r, 2 Mean_and_Median, echo=TRUE}
+#Calculate the daily mean and median
+meanstep<-as.integer(mean(a_sum$steps))
+medianstep<-as.integer(median(a_sum$steps))
+print(meanstep)
+print(medianstep)
+
+```
+
+The mean number of steps is `r meanstep` and the median number of steps is `r medianstep`.
 
 ## What is the average daily activity pattern?
 
+- Make a time series plot (i.e. type = "l") of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all days (y-axis)
+
+```{r, 1 Time_series_plot, echo=TRUE}
+#Make a time series plot
+a_interval<-aggregate(steps~interval, data=activity, FUN=mean, na.rm=TRUE)
+plot(a_interval$interval, a_interval$steps, xlab="Interval", ylab="Steps", type="l", main="Average Number of Steps Time Series")
+
+```
+
+- Which 5-minute interval, on average across all the days in the data set, contains the maximum number of steps?
+
+```{r, 2 Max_interval, echo=TRUE}
+#Identify the max average of steps and determine which interval that represents
+
+datsorted=a_interval[order((a_interval$steps), decreasing=TRUE),]
+maxstep<-datsorted[1,]
+print(maxstep)
+maxint<-maxstep[1,1]
+maxstep2<-maxstep[1,2]
+```
+
+Interval `r maxint` has the highest average number of steps at `r maxstep2` steps.
 
 
 ## Imputing missing values
 
+- Calculate and report the total number of missing values in the data set (i.e. the total number of rows with NAs)
+
+```{r, 1 NA_Count, echo=TRUE}
+#Determine how many records have NA data
+
+
+bad<-subset(activity, is.na(activity$steps))
+missing<-nrow(bad)
+print(missing)
+```
+
+There are `r missing` missing values in the dataset.
+
+
+- Devise a strategy for filling in all of the missing values in the dataset.
+
+Will use the interval average for any missing NA data.
+
+
+- Create a new dataset that is equal to the original dataset but with the missing data filled in.
+
+```{r, 3 NA_Dataset, echo=TRUE}
+act2<-activity
+
+act2$steps<-replace(act2$steps,is.na(act2$steps),a_interval$steps[match(act2$interval,a_interval$interval)])
+```
+
+- Make a histogram of the total number of steps taken each day and Calculate and report the mean and median total number of steps taken per day. Do these values differ from the estimates from the first part of the assignment? What is the impact of imputing missing data on the estimates of the total daily number of steps?
+
+```{r, 4 NA_Dataset_Usage, echo=TRUE}
+#Make a histogramn
+
+a2_sum<-aggregate(steps~date, data=act2, FUN=sum, na.rm=TRUE)
+
+#Make a histogram
+library(ggplot2)
+#Binwdith calculation
+bw2<-max(a2_sum$steps)
+
+ggplot(a2_sum, aes(x=steps)) + geom_histogram(binwidth=bw2/30) +xlab("Total Steps per Day") +ylab("Frequency")
+
+
+#Transform the data 
+#Assumes only NA data will be replaced, not 0 values
+
+a_sum2<-aggregate(steps~date, data=act2, FUN=sum, na.rm=TRUE)
+
+#Calculate and report the mean and median total number of steps taken per day
+
+meanstep2<-as.integer(mean(a_sum2$steps))
+medianstep2<-as.integer(median(a_sum2$steps))
+print(meanstep2)
+print(medianstep2)
+```
+
+
+By imputing the missing data using this method, the median is `r medianstep2` and the mean is `r meanstep2`.  As a result, the median and mean are equal.  The process of imputing data did not change the mean since mean data was used to account for NA information.  The median only increased slightly, from `r medianstep` to `r medianstep2` after imputing missing data. 
 
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
+- Create a new factor variable in the dataset with two levels - "weekday" and "weekend" indicating whether a given date is a weekday or weekend day.
+
+```{r, 1 weekend_factor, echo=TRUE}
+#Add a new column to the data set with the value of weekday or weekend
+#Start with day of week
+
+act2$dayofweek<-weekdays(as.Date(act2$date))
+
+days<-unique(act2$dayofweek)
+mat=matrix(c("Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday", "weekday","weekday","weekday","weekday","weekday","weekend","weekend"), nrow=7, ncol=2)
+
+colnames(mat)<-c("day","group")
+
+
+act2$dayofweek<-mat[,2][match(act2$dayofweek, mat[,1])]
+
+
+```
+
+
+- Make a panel plot containing a time series plot (i.e. type = "l") of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all weekday days or weekend days (y-axis)
+
+```{r, 2 weekend_plot, echo=TRUE}
+
+#Summarize the data
+wkdaysub<-subset(act2, act2$dayofweek=="weekday")
+wkendsub<-subset(act2, act2$dayofweek=="weekend")
+
+wkd<-aggregate(steps~interval, data=wkdaysub, FUN=mean, na.rm=TRUE)
+wke<-aggregate(steps~interval, data=wkendsub, FUN=mean, na.rm=TRUE)
+
+wkd$day<-"weekday"
+wke$day<-"weekend"
+
+mergeddata=merge(wkd,wke, all=TRUE)
+
+#Plot the data
+require("lattice")
+xyplot(steps ~ interval | day, mergeddata, layout = c(1, 2), ylab = "Number of Steps", 
+       xlab = "Interval", type="l",as.table = T)
+
+```
+
+There are differences comparing weekend to weekday.  It appears that the weekday data has more activity in early intervals perhaps because people are sleeping in later on the weekends.  After interval 1000, weekday activity drops dramatically and remains at a low level presumably because people are going to work and sitting down at their jobs, but on the weekends, there is a more pronounced level of activity throughout the day.
